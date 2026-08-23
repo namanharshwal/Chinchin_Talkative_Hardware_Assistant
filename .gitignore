@@ -1,0 +1,9 @@
+build/
+sdkconfig
+*.pyc
+__pycache__/
+.env
+memory.json
+*.bin
+*.elf
+*.map
