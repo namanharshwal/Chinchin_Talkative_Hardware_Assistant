@@ -30,8 +30,27 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
                 audio_hal_write_speaker((const uint8_t*)data->data_ptr, data->data_len);
                 ui_manager_set_state(UI_STATE_IDLE);
                 ui_manager_set_status("AI Connected!");
-            } else {
+            } else if (data->op_code == 1) { // Text data
                 ESP_LOGI(TAG, "WEBSOCKET_EVENT_DATA: Text data received");
+                // Null-terminate the string safely for parsing
+                char *text_data = (char *)malloc(data->data_len + 1);
+                if (text_data) {
+                    memcpy(text_data, data->data_ptr, data->data_len);
+                    text_data[data->data_len] = '\0';
+                    
+                    if (strstr(text_data, "\"state\":\"listening\"")) {
+                        ui_manager_set_state(UI_STATE_LISTENING);
+                        ui_manager_set_status("Listening...");
+                    } else if (strstr(text_data, "\"state\":\"thinking\"")) {
+                        ui_manager_set_state(UI_STATE_THINKING);
+                        ui_manager_set_status("Thinking...");
+                    } else if (strstr(text_data, "\"state\":\"idle\"")) {
+                        ui_manager_set_state(UI_STATE_IDLE);
+                        ui_manager_set_status("AI Connected!");
+                    }
+                    
+                    free(text_data);
+                }
             }
             break;
         case WEBSOCKET_EVENT_ERROR:

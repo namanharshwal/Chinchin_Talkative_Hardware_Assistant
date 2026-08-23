@@ -22,7 +22,12 @@ static void mic_recording_task(void *arg) {
         vTaskDelete(NULL);
     }
     while (1) {
-        if (ui_manager_get_state() == UI_STATE_LISTENING) {
+        ui_state_t current_state = ui_manager_get_state();
+        // Stream constantly unless we are speaking (to prevent echo) or in menu/hacking modes
+        if (current_state != UI_STATE_SPEAKING && 
+            current_state != UI_STATE_MENU && 
+            current_state != UI_STATE_HACKING) {
+            
             size_t bytes_read = 0;
             if (audio_hal_read_mic(mic_buf, 1024, &bytes_read) == ESP_OK && bytes_read > 0) {
                 websocket_client_send_audio(mic_buf, bytes_read);

@@ -109,23 +109,9 @@ static void touch_task(void *arg) {
             }
         }
 
-        // Button 4: Listen (Toggle)
+        // Button 4: Unused (Previously Push-to-Talk)
         if (state_4 && !last_state_4) {
-            static bool is_listening = false;
-            is_listening = !is_listening;
-            if (is_listening) {
-                ESP_LOGI(TAG, "Touch Button 4 pressed! (Start Listening)");
-                if (ui_manager_get_state() == UI_STATE_SPEAKING) {
-                    audio_hal_flush_speaker();
-                }
-                ui_manager_set_state(UI_STATE_LISTENING);
-                ui_manager_set_status("Listening...");
-            } else {
-                ESP_LOGI(TAG, "Touch Button 4 pressed! (Stop Listening)");
-                ui_manager_set_state(UI_STATE_THINKING);
-                ui_manager_set_status("Thinking...");
-                websocket_client_send_mcp("{\"action\":\"process_audio\"}");
-            }
+            ESP_LOGI(TAG, "Touch Button 4 pressed! (Now handled by intelligent VAD)");
         }
 
 skip_normal_logic:
