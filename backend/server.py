@@ -3,6 +3,8 @@ import websockets
 import json
 import logging
 from ai_pipeline import AIPipeline
+import time
+import random
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("Server")
@@ -18,6 +20,37 @@ async def handle_client(websocket, path=""):
     if greeting:
         await websocket.send(greeting)
         
+    last_interaction_time = time.time()
+    
+    async def autonomous_loop():
+        nonlocal last_interaction_time
+        while True:
+            await asyncio.sleep(5)
+            if time.time() - last_interaction_time > random.uniform(20, 30):
+                logger.info("Autonomous trigger activated!")
+                last_interaction_time = time.time() # Reset immediately to prevent spam
+                
+                # Ask LLM a random spontaneous prompt
+                spontaneous_prompts = [
+                    "Report on local network status.",
+                    "Say something chaotic and cyberpunk.",
+                    "Are there any vulnerable devices nearby?",
+                    "Comment on how quiet it is."
+                ]
+                loop = asyncio.get_running_loop()
+                llm_reply = await loop.run_in_executor(None, pipeline.generate_response, f"SYSTEM TRIGGER: {random.choice(spontaneous_prompts)}")
+                
+                if llm_reply:
+                    audio_reply = await pipeline.text_to_speech(llm_reply)
+                    if audio_reply:
+                        logger.info(f"Sending autonomous TTS audio to ESP32 ({len(audio_reply)} bytes)")
+                        try:
+                            await websocket.send(audio_reply)
+                        except:
+                            break
+
+    auto_task = asyncio.create_task(autonomous_loop())
+        
     audio_buffer = bytearray()
     
     try:
@@ -27,6 +60,7 @@ async def handle_client(websocket, path=""):
                 audio_buffer.extend(message)
                 
             elif isinstance(message, str):
+                last_interaction_time = time.time()
                 logger.info(f"Received JSON from ESP32: {message}")
                 try:
                     data = json.loads(message)
@@ -60,6 +94,8 @@ async def handle_client(websocket, path=""):
                     
     except websockets.exceptions.ConnectionClosed:
         logger.info("ESP32 Disconnected")
+    finally:
+        auto_task.cancel()
 
 async def main():
     port = 8765

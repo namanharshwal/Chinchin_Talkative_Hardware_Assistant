@@ -26,7 +26,7 @@ static uint32_t frame_counter = 0;
 static int menu_cursor_index = 0;
 static const char* menu_items[MENU_ITEM_COUNT] = {
     "1. Set Happy",
-    "2. Set Angry",
+    "2. Wi-Fi Sniffer",
     "3. Set Sleepy",
     "4. Stop Audio",
     "5. Exit Menu"
@@ -235,7 +235,7 @@ void ui_manager_menu_select(void) {
     // Execute action based on cursor
     switch (menu_cursor_index) {
         case 0: ui_manager_set_state(UI_STATE_HAPPY); break;
-        case 1: ui_manager_set_state(UI_STATE_ANGRY); break;
+        case 1: ui_manager_set_state(UI_STATE_HACKING); break;
         case 2: ui_manager_set_state(UI_STATE_SLEEPY); break;
         case 3: audio_hal_flush_speaker(); ui_manager_set_state(UI_STATE_IDLE); break;
         case 4: ui_manager_set_state(previous_state_before_menu); break; // Exit
@@ -269,6 +269,25 @@ void ui_render(void) {
         sh1106_update();
         frame_counter++;
         return; // Skip face rendering
+    }
+
+    if (state == UI_STATE_HACKING) {
+        draw_string(0, 2, "> INITIATING HACK...", true);
+        
+        // Pseudo-random scrolling matrix effect (to avoid dropping the WebSocket connection with a real scan)
+        for (int i = 0; i < 5; i++) {
+            int y = 14 + (i * 10);
+            char hex_buf[24];
+            snprintf(hex_buf, sizeof(hex_buf), "0x%04X %04X %04X", 
+                     (uint16_t)(frame_counter * (i+1) * 31),
+                     (uint16_t)((frame_counter + i) * 17),
+                     (uint16_t)(frame_counter * 99 % 0xFFFF));
+            draw_string(4, y, hex_buf, true);
+        }
+        
+        sh1106_update();
+        frame_counter++;
+        return;
     }
 
     bool is_speaking = (state == UI_STATE_SPEAKING);

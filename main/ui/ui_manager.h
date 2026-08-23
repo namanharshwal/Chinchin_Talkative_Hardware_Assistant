@@ -30,7 +30,8 @@ typedef enum {
     UI_STATE_SAD,
     UI_STATE_ANGRY,
     UI_STATE_SLEEPY,
-    UI_STATE_MENU
+    UI_STATE_MENU,
+    UI_STATE_HACKING
 } ui_state_t;
 
 esp_err_t ui_manager_init(void);
