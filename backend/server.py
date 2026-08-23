@@ -9,35 +9,32 @@ import audioop
 import re
 
 # 100+ Emotion Parametric Mapping
-# Values are (slant, height, mouth_curve)
-# Slant: -1.0 (happy/up), 0.0 (flat), 1.0 (angry/down)
-# Height: 0.1 (closed), 1.0 (open), 1.5 (wide)
-# Mouth: -1.0 (frown), 0.0 (flat), 1.0 (smile)
+# 100+ Emotion Dictionary mapping to UI States
+# Available states: angry, happy, sad, idle, sleepy, thinking
 EMOTION_MAP = {
     # Core Emotions
-    "angry": (1.0, 0.8, -1.0), "happy": (-0.8, 0.5, 1.0), "sad": (-0.5, 0.4, -1.0), 
-    "cynical": (0.8, 0.6, -0.5), "manic": (-0.5, 1.5, 1.0), "suspicious": (0.9, 0.3, 0.0), 
-    "amused": (-0.4, 0.6, 0.8), "calculating": (0.7, 0.5, 0.0), "depressed": (0.0, 0.2, -0.8), 
-    "confused": (0.2, 0.9, -0.2), "neutral": (0.0, 0.8, 0.0),
+    "angry": "angry", "happy": "happy", "sad": "sad", 
+    "cynical": "idle", "manic": "happy", "suspicious": "thinking", 
+    "amused": "happy", "calculating": "thinking", "depressed": "sad", 
+    "confused": "thinking", "neutral": "idle",
     
     # Hacker / Cyberpunk Extended Emotions
-    "smug": (0.6, 0.5, 0.7), "bored": (0.0, 0.3, -0.2), "intense": (1.0, 1.2, -0.5),
-    "psychotic": (1.0, 1.5, 1.0), "arrogant": (0.8, 0.4, 0.5), "focused": (0.7, 0.6, 0.0),
-    "triumphant": (-0.8, 1.0, 1.0), "defeated": (-0.2, 0.2, -1.0), "mocking": (0.5, 0.5, 0.8),
-    "malicious": (1.0, 0.8, 0.9), "annoyed": (0.6, 0.4, -0.5), "curious": (0.0, 1.2, 0.3),
-    "shocked": (-0.5, 1.5, -0.5), "tired": (0.1, 0.2, -0.1), "puzzled": (0.4, 0.8, -0.3),
-    "elated": (-1.0, 1.2, 1.0), "furious": (1.0, 0.9, -1.0), "sarcastic": (0.8, 0.5, 0.6),
-    "cold": (0.5, 0.5, -0.2), "ruthless": (0.9, 0.6, -0.8), "mischievous": (-0.2, 0.6, 0.9),
-    "apathetic": (0.0, 0.3, 0.0), "hostile": (0.9, 0.7, -0.9), "glitchy": (0.5, 0.5, -0.5),
-    "overloaded": (0.0, 1.5, -1.0), "zen": (-0.5, 0.2, 0.2), "judgmental": (0.8, 0.4, -0.4),
-    "sinister": (1.0, 0.7, 0.8), "alert": (0.5, 1.3, 0.0), "panicked": (-0.5, 1.4, -0.8),
-    "impatient": (0.7, 0.5, -0.3), "intrigued": (0.2, 1.1, 0.4), "disgusted": (0.8, 0.3, -0.7)
-    # The system will mathematically fallback to neutral if an unknown emotion is generated
+    "smug": "happy", "bored": "sleepy", "intense": "angry",
+    "psychotic": "angry", "arrogant": "happy", "focused": "idle",
+    "triumphant": "happy", "defeated": "sad", "mocking": "happy",
+    "malicious": "angry", "annoyed": "angry", "curious": "thinking",
+    "shocked": "thinking", "tired": "sleepy", "puzzled": "thinking",
+    "elated": "happy", "furious": "angry", "sarcastic": "idle",
+    "cold": "idle", "ruthless": "angry", "mischievous": "happy",
+    "apathetic": "sleepy", "hostile": "angry", "glitchy": "thinking",
+    "overloaded": "sleepy", "zen": "idle", "judgmental": "angry",
+    "sinister": "angry", "alert": "idle", "panicked": "thinking",
+    "impatient": "angry", "intrigued": "thinking", "disgusted": "angry"
 }
 
-def get_face_params(emotion: str):
+def get_face_state(emotion: str):
     emotion = emotion.lower().strip()
-    return EMOTION_MAP.get(emotion, EMOTION_MAP["neutral"])
+    return EMOTION_MAP.get(emotion, "idle")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("Server")
@@ -114,10 +111,10 @@ async def handle_client(websocket, path=""):
                                 
                             logger.info(f"Detected Emotion: {emotion}")
                             
-                            # Send parametric UI update to ESP32
-                            s, h, m = get_face_params(emotion)
-                            face_json = json.dumps({"face": {"s": s, "h": h, "m": m}})
-                            await websocket.send(face_json)
+                            # Send state update to ESP32
+                            face_state = get_face_state(emotion)
+                            state_json = json.dumps({"state": face_state})
+                            await websocket.send(state_json)
                             
                             # 3. TTS (without the emotion tag)
                             audio_reply = await pipeline.text_to_speech(clean_reply)

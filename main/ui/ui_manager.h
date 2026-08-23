@@ -43,7 +43,6 @@ void ui_manager_set_status(const char* status_text);
 void ui_manager_set_wifi(bool connected);
 void ui_manager_set_state(ui_state_t state);
 ui_state_t ui_manager_get_state(void);
-void ui_manager_set_face_params(float s, float h, float m);
 
 // Menu OS Controls
 void ui_manager_menu_scroll(int dir);
