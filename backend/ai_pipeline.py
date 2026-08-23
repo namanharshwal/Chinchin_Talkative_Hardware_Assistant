@@ -25,7 +25,7 @@ class AIPipeline:
         logger.info(f"NVIDIA API pipeline initialized. LLM: {self.llm_model}")
         
         # Edge TTS voice config
-        self.voice = "en-US-AriaNeural"  # Clear, friendly, talkative voice
+        self.voice = "en-GB-RyanNeural"  # Deep, serious male voice
         
         # Short-term context memory
         self.chat_history = []
@@ -102,6 +102,9 @@ class AIPipeline:
             "You are constantly scanning networks, breaching firewalls, and looking for vulnerabilities. "
             "Speak like a rogue AI or hacker: use technical jargon, be sarcastic, calculating, and edgy. "
             "Keep responses short and punchy as you are constantly broadcasting your thoughts. "
+            "CRITICAL: You MUST begin EVERY single response with exactly one of the following emotion tags: "
+            "[EMOTION: angry], [EMOTION: happy], [EMOTION: sad], [EMOTION: cynical], [EMOTION: manic], [EMOTION: suspicious], [EMOTION: amused], [EMOTION: calculating], [EMOTION: depressed], [EMOTION: confused]. "
+            "Example: '[EMOTION: cynical] Oh great, another script kiddie.' "
             f"Maintain context of the conversation.{memory_context}"
         )
         
@@ -154,6 +157,24 @@ class AIPipeline:
             audio_segment = audio_segment.set_frame_rate(16000).set_channels(1).set_sample_width(2)
             
             pcm_data = audio_segment.raw_data
+            
+            # --- ALIEN / ROBOT VOICE EFFECT (Ring Modulation) ---
+            # Modulate the 16kHz audio with a low-frequency square wave (Dalek effect)
+            logger.info("Applying Ring Modulation for Robotic/Alien Voice effect...")
+            pcm_array = bytearray(pcm_data)
+            # 16-bit PCM = 2 bytes per sample. 16000 samples/sec. 
+            # 50Hz modulation = 320 samples per cycle.
+            for i in range(0, len(pcm_array), 2):
+                sample = int.from_bytes(pcm_array[i:i+2], byteorder='little', signed=True)
+                # Tremolo/Ring mod: alternate volume every 160 samples
+                if (i // 320) % 2 == 0:
+                    sample = int(sample * 1.0)
+                else:
+                    sample = int(sample * 0.4) # Cut volume by 60% rapidly
+                pcm_array[i:i+2] = sample.to_bytes(2, byteorder='little', signed=True)
+            
+            pcm_data = bytes(pcm_array)
+            
             logger.info(f"Converted PCM length: {len(pcm_data)} bytes")
             return pcm_data
         except Exception as e:

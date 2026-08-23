@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "ui/ui_manager.h"
 #include "audio/audio_hal.h"
+#include "cJSON.h"
 
 static const char *TAG = "WEBSOCKET";
 static esp_websocket_client_handle_t client = NULL;
@@ -47,6 +48,21 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
                     } else if (strstr(text_data, "\"state\":\"idle\"")) {
                         ui_manager_set_state(UI_STATE_IDLE);
                         ui_manager_set_status("AI Connected!");
+                    }
+                    
+                    // Parse Face Parameters using cJSON
+                    cJSON *json = cJSON_Parse(text_data);
+                    if (json) {
+                        cJSON *face = cJSON_GetObjectItem(json, "face");
+                        if (face) {
+                            cJSON *s = cJSON_GetObjectItem(face, "s");
+                            cJSON *h = cJSON_GetObjectItem(face, "h");
+                            cJSON *m = cJSON_GetObjectItem(face, "m");
+                            if (s && h && m) {
+                                ui_manager_set_face_params(s->valuedouble, h->valuedouble, m->valuedouble);
+                            }
+                        }
+                        cJSON_Delete(json);
                     }
                     
                     free(text_data);

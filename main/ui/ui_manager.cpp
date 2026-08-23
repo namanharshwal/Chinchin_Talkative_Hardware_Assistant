@@ -21,6 +21,25 @@ static char current_status[32] = "Hello! Booting...";
 static SemaphoreHandle_t ui_mutex = NULL;
 static uint32_t frame_counter = 0;
 
+// --- PARAMETRIC FACE STATE ---
+static float target_slant = 0.0f;
+static float target_height = 0.8f;
+static float target_mouth = 0.0f;
+
+static float current_slant = 0.0f;
+static float current_height = 0.8f;
+static float current_mouth = 0.0f;
+
+void ui_manager_set_face_params(float s, float h, float m) {
+    if (ui_mutex) {
+        xSemaphoreTake(ui_mutex, portMAX_DELAY);
+        target_slant = s;
+        target_height = h;
+        target_mouth = m;
+        xSemaphoreGive(ui_mutex);
+    }
+}
+
 // --- MENU OS STATE ---
 #define MENU_ITEM_COUNT 5
 static int menu_cursor_index = 0;
@@ -302,6 +321,13 @@ void ui_render(void) {
     // ====== HIGH-FPS ANIMATION MATH ======
     float time_sec = frame_counter / 60.0f;
 
+    // --- LERP PARAMETRIC STATE ---
+    xSemaphoreTake(ui_mutex, portMAX_DELAY);
+    current_slant += (target_slant - current_slant) * 0.15f;
+    current_height += (target_height - current_height) * 0.15f;
+    current_mouth += (target_mouth - current_mouth) * 0.15f;
+    xSemaphoreGive(ui_mutex);
+
     // --- 3D Parallax: Breathing ---
     float breath = sin(time_sec * 2.5f) * 1.5f;
     int sway_y = (int)breath;
@@ -364,51 +390,54 @@ void ui_render(void) {
         if (eye_ry < 1) eye_ry = 1;
 
         if (eye_ry > 2) {
-            // --- AGGRESSIVE CYBERPUNK EYES ---
+            // --- AGGRESSIVE CYBERPUNK EYES (PARAMETRIC) ---
+            int inner_y = eye_y + (int)(current_slant * 4.0f) - 1;
+            int outer_y = eye_y + (int)(current_slant * -5.0f) - 1;
+            int height_off = (int)(current_height * 4.0f) - 3;
             
-            // Left Eyebrow (Aggressive downward slant)
-            draw_line(left_eye_cx - 16, eye_y - 10, left_eye_cx + 12, eye_y - 2, true);
-            draw_line(left_eye_cx - 16, eye_y - 11, left_eye_cx + 12, eye_y - 3, true); // thickness
-            draw_line(left_eye_cx - 16, eye_y - 12, left_eye_cx + 12, eye_y - 4, true); // thickness
+            // Left Eyebrow
+            draw_line(left_eye_cx - 16, outer_y - 4 - height_off, left_eye_cx + 12, inner_y - 5 - height_off, true);
+            draw_line(left_eye_cx - 16, outer_y - 5 - height_off, left_eye_cx + 12, inner_y - 6 - height_off, true);
+            draw_line(left_eye_cx - 16, outer_y - 6 - height_off, left_eye_cx + 12, inner_y - 7 - height_off, true);
             
             // Left Eye
-            // Top eyelid (Aggressive slant down towards center)
-            draw_line(left_eye_cx - 14, eye_y - 6, left_eye_cx + 10, eye_y + 3, true);
-            draw_line(left_eye_cx - 14, eye_y - 5, left_eye_cx + 10, eye_y + 4, true); // thickness
-            draw_line(left_eye_cx - 14, eye_y - 4, left_eye_cx + 10, eye_y + 5, true); // thickness
+            // Top eyelid
+            draw_line(left_eye_cx - 14, outer_y, left_eye_cx + 10, inner_y, true);
+            draw_line(left_eye_cx - 14, outer_y + 1, left_eye_cx + 10, inner_y + 1, true);
+            draw_line(left_eye_cx - 14, outer_y + 2, left_eye_cx + 10, inner_y + 2, true);
             
-            // Bottom eyelid (Flat/slight curve)
+            // Bottom eyelid
             draw_line(left_eye_cx - 10, eye_y + 8, left_eye_cx + 6, eye_y + 8, true);
             draw_line(left_eye_cx - 10, eye_y + 7, left_eye_cx + 6, eye_y + 7, true);
             
             // Connect left side
-            draw_line(left_eye_cx - 14, eye_y - 6, left_eye_cx - 10, eye_y + 8, true);
-            draw_line(left_eye_cx - 13, eye_y - 6, left_eye_cx - 9, eye_y + 8, true);
+            draw_line(left_eye_cx - 14, outer_y, left_eye_cx - 10, eye_y + 8, true);
+            draw_line(left_eye_cx - 13, outer_y, left_eye_cx - 9, eye_y + 8, true);
             
-            // Left Pupil (Tech U-Shape)
+            // Left Pupil
             int pupil_x = left_eye_cx - 4 + (int)(look_x * 0.7f);
             int pupil_y = eye_y + 1 + (int)(look_y * 0.7f);
             draw_filled_rect(pupil_x, pupil_y, 7, 7, true);
-            draw_filled_rect(pupil_x + 2, pupil_y + 2, 3, 5, false); // Hollow out to make U-shape
+            draw_filled_rect(pupil_x + 2, pupil_y + 2, 3, 5, false);
 
-            // Right Eyebrow (Aggressive downward slant)
-            draw_line(right_eye_cx + 16, eye_y - 10, right_eye_cx - 12, eye_y - 2, true);
-            draw_line(right_eye_cx + 16, eye_y - 11, right_eye_cx - 12, eye_y - 3, true);
-            draw_line(right_eye_cx + 16, eye_y - 12, right_eye_cx - 12, eye_y - 4, true);
+            // Right Eyebrow
+            draw_line(right_eye_cx + 16, outer_y - 4 - height_off, right_eye_cx - 12, inner_y - 5 - height_off, true);
+            draw_line(right_eye_cx + 16, outer_y - 5 - height_off, right_eye_cx - 12, inner_y - 6 - height_off, true);
+            draw_line(right_eye_cx + 16, outer_y - 6 - height_off, right_eye_cx - 12, inner_y - 7 - height_off, true);
 
             // Right Eye
-            // Top eyelid (Aggressive slant down towards center)
-            draw_line(right_eye_cx + 14, eye_y - 6, right_eye_cx - 10, eye_y + 3, true);
-            draw_line(right_eye_cx + 14, eye_y - 5, right_eye_cx - 10, eye_y + 4, true);
-            draw_line(right_eye_cx + 14, eye_y - 4, right_eye_cx - 10, eye_y + 5, true);
+            // Top eyelid
+            draw_line(right_eye_cx + 14, outer_y, right_eye_cx - 10, inner_y, true);
+            draw_line(right_eye_cx + 14, outer_y + 1, right_eye_cx - 10, inner_y + 1, true);
+            draw_line(right_eye_cx + 14, outer_y + 2, right_eye_cx - 10, inner_y + 2, true);
             
             // Bottom eyelid
             draw_line(right_eye_cx + 10, eye_y + 8, right_eye_cx - 6, eye_y + 8, true);
             draw_line(right_eye_cx + 10, eye_y + 7, right_eye_cx - 6, eye_y + 7, true);
             
             // Connect right side
-            draw_line(right_eye_cx + 14, eye_y - 6, right_eye_cx + 10, eye_y + 8, true);
-            draw_line(right_eye_cx + 13, eye_y - 6, right_eye_cx + 9, eye_y + 8, true);
+            draw_line(right_eye_cx + 14, outer_y, right_eye_cx + 10, eye_y + 8, true);
+            draw_line(right_eye_cx + 13, outer_y, right_eye_cx + 9, eye_y + 8, true);
             
             // Right Pupil
             pupil_x = right_eye_cx - 3 + (int)(look_x * 0.7f);
@@ -435,22 +464,14 @@ void ui_render(void) {
         int mw = 4 + (int)(mouth_open * 4.0f);
         int mh = 2 + (int)(mouth_open * 6.0f);
         draw_filled_rect(cx - mw, mouth_y, mw * 2, mh, true);
-        // Inner void
         if (mh > 2) draw_filled_rect(cx - mw + 1, mouth_y + 1, mw * 2 - 2, mh - 2, false);
-    } 
-    else if (is_happy) {
-        // Hacker smirk
-        draw_line(cx - 6, mouth_y, cx, mouth_y + 2, true);
-        draw_line(cx - 6, mouth_y - 1, cx, mouth_y + 1, true);
-        draw_line(cx, mouth_y + 2, cx + 6, mouth_y - 2, true);
-        draw_line(cx, mouth_y + 1, cx + 6, mouth_y - 3, true);
-    }
-    else {
-        // Sharp 'v' mouth (Idle/Default)
-        draw_line(cx - 4, mouth_y - 2, cx, mouth_y + 2, true);
-        draw_line(cx - 3, mouth_y - 2, cx, mouth_y + 1, true);
-        draw_line(cx + 4, mouth_y - 2, cx, mouth_y + 2, true);
-        draw_line(cx + 3, mouth_y - 2, cx, mouth_y + 1, true);
+    } else {
+        // --- PARAMETRIC MOUTH ---
+        int m_off = (int)(current_mouth * 4.0f);
+        draw_line(cx - 6, mouth_y - m_off, cx, mouth_y + 2, true);
+        draw_line(cx - 6, mouth_y - m_off - 1, cx, mouth_y + 1, true); // thickness
+        draw_line(cx, mouth_y + 2, cx + 6, mouth_y - m_off, true);
+        draw_line(cx, mouth_y + 1, cx + 6, mouth_y - m_off - 1, true); // thickness
     }
 
     // ====== 5. STATUS ICONS ======
