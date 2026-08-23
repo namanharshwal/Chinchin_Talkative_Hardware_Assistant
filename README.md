@@ -1,8 +1,8 @@
-# 🐰 Chinchin Talkative Hardware Assistant
+# 🥝 Kiwi Talkative Hardware Assistant
 
-Welcome to the **Chinchin Talkative Hardware Assistant**! This is a cutting-edge, highly responsive AI hardware companion powered by an ESP32 microcontroller and a Python-based WebSocket backend.
+Welcome to the **Kiwi Talkative Hardware Assistant**! This is a cutting-edge, highly responsive AI hardware companion powered by an ESP32 microcontroller and a Python-based WebSocket backend.
 
-Designed as a physical desktop assistant, "Chin Chin" features a fully fluid, 60FPS responsive UI rendering engine that brings a custom rabbit character to life. It features a conversational AI pipeline capable of real-time voice interaction, dynamic interruptions, context-aware memory, and autonomous multilingual capabilities.
+Designed as a physical desktop assistant, "Kiwi" features a fully fluid, 60FPS responsive UI rendering engine that brings a expressive anime-style character to life. It features a conversational AI pipeline capable of real-time voice interaction, dynamic interruptions, context-aware memory, and autonomous multilingual capabilities.
 
 ## ✨ Key Features
 

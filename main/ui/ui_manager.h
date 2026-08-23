@@ -29,7 +29,8 @@ typedef enum {
     UI_STATE_HAPPY,
     UI_STATE_SAD,
     UI_STATE_ANGRY,
-    UI_STATE_SLEEPY
+    UI_STATE_SLEEPY,
+    UI_STATE_MENU
 } ui_state_t;
 
 esp_err_t ui_manager_init(void);
@@ -41,6 +42,11 @@ void ui_manager_set_status(const char* status_text);
 void ui_manager_set_wifi(bool connected);
 void ui_manager_set_state(ui_state_t state);
 ui_state_t ui_manager_get_state(void);
+
+// Menu OS Controls
+void ui_manager_menu_scroll(int dir);
+void ui_manager_menu_select(void);
+void ui_manager_menu_back(void);
 
 // Custom SH1106 specific functions
 esp_err_t i2c_master_init(void);

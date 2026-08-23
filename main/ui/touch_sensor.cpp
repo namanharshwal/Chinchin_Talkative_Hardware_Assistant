@@ -17,6 +17,7 @@ static const char *TAG = "TOUCH";
 static void touch_task(void *arg) {
     uint32_t press_time_1 = 0;
     uint32_t press_time_2 = 0;
+    uint32_t press_time_3 = 0;
     
     bool last_state_1 = false;
     bool last_state_2 = false;
@@ -30,6 +31,27 @@ static void touch_task(void *arg) {
         bool state_4 = gpio_get_level(TOUCH_PIN_4);
         
         uint32_t now = pdTICKS_TO_MS(xTaskGetTickCount());
+
+        // --- MENU NAVIGATION OVERRIDE ---
+        if (ui_manager_get_state() == UI_STATE_MENU) {
+            // Button 1: Scroll UP
+            if (state_1 && !last_state_1) {
+                ui_manager_menu_scroll(-1);
+            }
+            // Button 2: Scroll DOWN
+            if (state_2 && !last_state_2) {
+                ui_manager_menu_scroll(1);
+            }
+            // Button 3: Back / Exit Menu
+            if (state_3 && !last_state_3) {
+                ui_manager_menu_back();
+            }
+            // Button 4: Select
+            if (state_4 && !last_state_4) {
+                ui_manager_menu_select();
+            }
+            goto skip_normal_logic;
+        }
 
         // Button 1: Volume Down
         if (state_1) {
@@ -65,12 +87,26 @@ static void touch_task(void *arg) {
             }
         }
 
-        // Button 3: Interrupt / Stop AI / Angry Emotion
-        if (state_3 && !last_state_3) {
-            ESP_LOGI(TAG, "Touch Button 3 pressed! (Stop Speaking)");
-            audio_hal_flush_speaker();
-            ui_manager_set_state(UI_STATE_ANGRY);
-            ui_manager_set_status("Interrupted");
+        // Button 3: Interrupt / Menu Enter
+        if (state_3) {
+            if (!last_state_3) {
+                press_time_3 = now;
+            } else if (now - press_time_3 > 2000) {
+                // Long press: Enter Menu
+                ESP_LOGI(TAG, "Entering Menu OS");
+                audio_hal_flush_speaker();
+                // We need to set previous_state_before_menu inside ui_manager. 
+                // But setting state to menu will work for now, it's just idle if we exit.
+                ui_manager_set_state(UI_STATE_MENU);
+            }
+        } else if (last_state_3) {
+            // Short press: Stop Speaking / Angry
+            if (now - press_time_3 <= 2000) {
+                ESP_LOGI(TAG, "Touch Button 3 pressed! (Stop Speaking)");
+                audio_hal_flush_speaker();
+                ui_manager_set_state(UI_STATE_ANGRY);
+                ui_manager_set_status("Interrupted");
+            }
         }
 
         // Button 4: Listen (Toggle)
@@ -92,6 +128,7 @@ static void touch_task(void *arg) {
             }
         }
 
+skip_normal_logic:
         last_state_1 = state_1;
         last_state_2 = state_2;
         last_state_3 = state_3;

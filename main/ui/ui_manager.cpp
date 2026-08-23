@@ -8,6 +8,7 @@
 #include <string.h>
 #include <math.h>
 #include "rabbit_logo.h"
+#include "audio/audio_hal.h"
 
 static const char *TAG = "UI_MANAGER";
 static uint8_t oled_i2c_address = 0x3C;
@@ -19,6 +20,18 @@ static ui_state_t current_state = UI_STATE_IDLE;
 static char current_status[32] = "Hello! Booting...";
 static SemaphoreHandle_t ui_mutex = NULL;
 static uint32_t frame_counter = 0;
+
+// --- MENU OS STATE ---
+#define MENU_ITEM_COUNT 5
+static int menu_cursor_index = 0;
+static const char* menu_items[MENU_ITEM_COUNT] = {
+    "1. Set Happy",
+    "2. Set Angry",
+    "3. Set Sleepy",
+    "4. Stop Audio",
+    "5. Exit Menu"
+};
+static ui_state_t previous_state_before_menu = UI_STATE_IDLE;
 
 // Custom Bitmaps (8x8)
 static const uint8_t bmp_wifi_on[8] = { 0x00, 0x3E, 0x41, 0x80, 0x22, 0x41, 0x14, 0x08 }; // Custom wifi icon
@@ -107,25 +120,33 @@ void draw_bitmap8x8(int x, int y, const uint8_t *bitmap) {
     }
 }
 
-void draw_char(int x, int y, char c) {
+void draw_char(int x, int y, char c, bool color = true) {
     if (c < 32 || c > 127) return;
     int font_idx = (c - 32) * 5;
     for (int i = 0; i < 5; i++) {
         uint8_t line = font5x7[font_idx + i];
         for (int j = 0; j < 8; j++) {
-            if (line & 0x01) draw_pixel(x + i, y + j, true);
+            if (line & 0x01) draw_pixel(x + i, y + j, color);
             line >>= 1;
         }
     }
 }
 
-void draw_string(int x, int y, const char* str) {
+void draw_string(int x, int y, const char* str, bool color = true) {
     int start_x = x;
     while (*str) {
-        draw_char(x, y, *str);
+        draw_char(x, y, *str, color);
         x += 6;
         if (x + 5 >= 128) { x = start_x; y += 8; }
         str++;
+    }
+}
+
+void draw_filled_rect(int x, int y, int w, int h, bool color) {
+    for (int i = 0; i < w; i++) {
+        for (int j = 0; j < h; j++) {
+            draw_pixel(x + i, y + j, color);
+        }
     }
 }
 
@@ -154,48 +175,70 @@ void draw_filled_circle(int x0, int y0, int r, bool color) {
     }
 }
 
-// Draws the 128x64 bitmap with an X/Y offset and true topological eye squashing
-void draw_bitmap_animated(const uint8_t *bitmap, int dx, int dy, float blink_scale) {
-    // Eye bounding boxes in original logo coordinates
-    int le_x_start = 42, le_x_end = 52;
-    int le_y_start = 24, le_y_end = 46;
-    int re_x_start = 68, re_x_end = 78;
-    int re_y_start = 24, re_y_end = 46;
-    int eye_y_center = 35;
+// --- PURE ANIME VECTOR ENGINE ---
+// Every element is drawn with math. No bitmap needed. 60FPS fluid animation.
 
-    for (int y = 0; y < 64; y++) {
-        for (int x = 0; x < 128; x++) {
-            int src_x = x - dx;
-            int src_y = y - dy;
-            
-            if (src_x >= 0 && src_x < 128 && src_y >= 0 && src_y < 64) {
-                
-                // If we are inside the eye bounding box, we apply the blink scaling
-                if ((src_x >= le_x_start && src_x <= le_x_end && src_y >= le_y_start && src_y <= le_y_end) ||
-                    (src_x >= re_x_start && src_x <= re_x_end && src_y >= re_y_start && src_y <= re_y_end)) {
-                    
-                    if (blink_scale < 0.99f) {
-                        float scale = blink_scale < 0.05f ? 0.05f : blink_scale;
-                        int dist_y = src_y - eye_y_center;
-                        int orig_src_y = eye_y_center + (int)(dist_y / scale);
-                        
-                        // If the inverse scaled Y is outside the original eye box, it becomes the eyelid (face color = lit/true)
-                        if (orig_src_y < le_y_start || orig_src_y > le_y_end) {
-                            draw_pixel(x, y, true);
-                            continue;
-                        } else {
-                            src_y = orig_src_y;
-                        }
-                    }
-                }
-                
-                int src_page = src_y / 8;
-                int src_bit = src_y % 8;
-                if (bitmap[src_page * 128 + src_x] & (1 << src_bit)) {
-                    draw_pixel(x, y, true);
+// Draw a filled ellipse (oval) centered at (cx, cy) with radii (rx, ry)
+void draw_filled_ellipse(int cx, int cy, int rx, int ry, bool color) {
+    if (rx <= 0 || ry <= 0) return;
+    for (int y = -ry; y <= ry; y++) {
+        for (int x = -rx; x <= rx; x++) {
+            // Ellipse equation: (x/rx)^2 + (y/ry)^2 <= 1
+            if ((x * x * ry * ry + y * y * rx * rx) <= (rx * rx * ry * ry)) {
+                draw_pixel(cx + x, cy + y, color);
+            }
+        }
+    }
+}
+
+// Draw a thick curved line (using two overlapping ellipses to create an arc/crescent)
+void draw_arc(int cx, int cy, int rx, int ry, int thickness, bool color, bool is_upper) {
+    if (rx <= 0 || ry <= 0) return;
+    for (int y = -ry; y <= ry; y++) {
+        // Upper arc only draws top half, lower arc only draws bottom half
+        if (is_upper && y > 0) continue;
+        if (!is_upper && y < 0) continue;
+        
+        for (int x = -rx; x <= rx; x++) {
+            float val = (float)(x * x) / (rx * rx) + (float)(y * y) / (ry * ry);
+            if (val <= 1.0f) {
+                // Inner cutout
+                float val_inner = (float)(x * x) / ((rx - thickness) * (rx - thickness)) + (float)(y * y) / ((ry - thickness) * (ry - thickness));
+                if (val_inner > 1.0f || (rx - thickness <= 0) || (ry - thickness <= 0)) {
+                    draw_pixel(cx + x, cy + y, color);
                 }
             }
         }
+    }
+}
+
+// --- MENU CONTROL FUNCTIONS ---
+void ui_manager_menu_scroll(int dir) {
+    if (current_state != UI_STATE_MENU) return;
+    if (ui_mutex) {
+        xSemaphoreTake(ui_mutex, portMAX_DELAY);
+        menu_cursor_index += dir;
+        if (menu_cursor_index < 0) menu_cursor_index = MENU_ITEM_COUNT - 1;
+        if (menu_cursor_index >= MENU_ITEM_COUNT) menu_cursor_index = 0;
+        xSemaphoreGive(ui_mutex);
+    }
+}
+
+void ui_manager_menu_back(void) {
+    if (current_state != UI_STATE_MENU) return;
+    ui_manager_set_state(previous_state_before_menu);
+}
+
+void ui_manager_menu_select(void) {
+    if (current_state != UI_STATE_MENU) return;
+    
+    // Execute action based on cursor
+    switch (menu_cursor_index) {
+        case 0: ui_manager_set_state(UI_STATE_HAPPY); break;
+        case 1: ui_manager_set_state(UI_STATE_ANGRY); break;
+        case 2: ui_manager_set_state(UI_STATE_SLEEPY); break;
+        case 3: audio_hal_flush_speaker(); ui_manager_set_state(UI_STATE_IDLE); break;
+        case 4: ui_manager_set_state(previous_state_before_menu); break; // Exit
     }
 }
 
@@ -207,7 +250,26 @@ void ui_render(void) {
     strncpy(status_copy, current_status, sizeof(status_copy));
     xSemaphoreGive(ui_mutex);
 
-    memset(display_buffer, 0, sizeof(display_buffer)); // Clear
+    memset(display_buffer, 0, sizeof(display_buffer)); // Clear to black
+
+    if (state == UI_STATE_MENU) {
+        draw_string(20, 2, "--- SETTINGS ---", true);
+        
+        for (int i = 0; i < MENU_ITEM_COUNT; i++) {
+            int y = 14 + (i * 10);
+            if (i == menu_cursor_index) {
+                // Highlight box for selected item
+                draw_filled_rect(4, y - 1, 120, 9, true);
+                draw_string(6, y, menu_items[i], false); // Black text on white
+            } else {
+                draw_string(6, y, menu_items[i], true); // White text on black
+            }
+        }
+        
+        sh1106_update();
+        frame_counter++;
+        return; // Skip face rendering
+    }
 
     bool is_speaking = (state == UI_STATE_SPEAKING);
     bool is_thinking = (state == UI_STATE_THINKING);
@@ -218,81 +280,164 @@ void ui_render(void) {
     bool is_sleepy = (state == UI_STATE_SLEEPY);
     bool is_error = (state == UI_STATE_ERROR);
 
-    // --- High-FPS Sway & Breathing Math ---
+    // ====== HIGH-FPS ANIMATION MATH ======
     float time_sec = frame_counter / 60.0f;
-    
-    // Smooth breathing up and down
-    int sway_y = (int)(sin(time_sec * 2.5f) * 2.0f); 
-    
-    // Look around left and right
-    int sway_x = 0;
+
+    // --- 3D Parallax: Breathing ---
+    float breath = sin(time_sec * 2.5f) * 1.5f;
+    int sway_y = (int)breath;
+
+    // --- 3D Parallax: Looking around ---
+    float look_x = 0.0f;
+    float look_y = 0.0f;
     if (state == UI_STATE_IDLE || is_listening) {
-        sway_x = (int)(sin(time_sec * 1.5f) * 3.0f);
+        look_x = sin(time_sec * 0.8f) * 4.0f; // Slow smooth look
+        look_y = cos(time_sec * 0.5f) * 2.0f;
     }
-    
     if (is_thinking) {
-        sway_x = (frame_counter % 20 < 10) ? 2 : -2; // Jitter head when thinking
+        look_x = (frame_counter % 20 < 10) ? 2.0f : -2.0f; // Nervous jitter
+        look_y = -3.0f; // Look up when thinking
     }
+    int sway_x = (int)look_x;
 
-    // Blinking (Fluid high-FPS eyelid animation)
-    int blink_frame = frame_counter % 180;
-    bool is_blinking = (state == UI_STATE_IDLE && blink_frame < 12);
-    
-    float blink_scale = 1.0f;
-    if (is_blinking || is_sleepy) {
-        if (is_sleepy) {
-            blink_scale = 0.3f; // Half closed
-        } else {
-            // Smoothly animate eyelid scale down and up over 12 frames
-            if (blink_frame < 4) {
-                blink_scale = 1.0f - (blink_frame * 0.25f); // Closing: 1.0 -> 0.0
-            } else if (blink_frame < 8) {
-                blink_scale = 0.0f; // Fully closed
-            } else {
-                blink_scale = (blink_frame - 7) * 0.25f; // Opening: 0.0 -> 1.0
-            }
-        }
+    // --- Blinking ---
+    int blink_cycle = frame_counter % 150; // Blink every 2.5 seconds
+    float blink_t = 1.0f; // 1.0 = fully open, 0.0 = fully closed
+    if (blink_cycle < 12) {
+        // Blink animation over 12 frames
+        if (blink_cycle < 4)       blink_t = 1.0f - blink_cycle * 0.25f;
+        else if (blink_cycle < 8)  blink_t = 0.0f;
+        else                       blink_t = (blink_cycle - 7) * 0.25f;
     }
+    if (is_sleepy) blink_t = 0.3f; // Drowsy half-closed
+    if (is_happy) blink_t = 0.0f;  // Happy is always closed crescent
+    if (is_sad) blink_t = 0.7f;    // Sad is drooping
 
-    // 1. Draw the exact user logo with the swaying offset and topological eye squash
-    draw_bitmap_animated(rabbit_logo_bmp, sway_x, sway_y, blink_scale);
-
-    // 2. High-FPS Emotion Overlays (Matching Logo Coordinates + Sway)
-    int base_left_eye_x = 42 + sway_x;
-    int base_right_eye_x = 70 + sway_x;
-    int base_eye_y = 33 + sway_y;
-    
-    if (is_angry) {
-        for(int t=0; t<6; t++) {
-            draw_line(base_left_eye_x - 2, base_eye_y - 3 + t, base_left_eye_x + 18, base_eye_y + 7 + t, true);
-            draw_line(base_right_eye_x + 18, base_eye_y - 3 + t, base_right_eye_x - 2, base_eye_y + 7 + t, true);
-        }
-    }
-    
-    if (is_sad) {
-        for(int t=0; t<6; t++) {
-            draw_line(base_left_eye_x + 18, base_eye_y - 3 + t, base_left_eye_x - 2, base_eye_y + 7 + t, true);
-            draw_line(base_right_eye_x - 2, base_eye_y - 3 + t, base_right_eye_x + 18, base_eye_y + 7 + t, true);
-        }
-    }
-    
-    // Speaking Animation (Mouth roughly at x=60 to 68, y=56 to 62)
+    // --- Speaking mouth ---
+    float mouth_open = 0.0f; // 0 = closed, 1 = wide open
     if (is_speaking) {
-        int mouth_x = 60 + sway_x;
-        int mouth_y = 56 + sway_y;
-        
-        // High-FPS mouth opening and closing using sine wave
-        int mouth_h = 2 + (int)(abs(sin(time_sec * 15.0f)) * 8.0f);
-        int mouth_w = 8 + (int)(abs(cos(time_sec * 10.0f)) * 4.0f);
-        
-        draw_rect(mouth_x - (mouth_w - 8)/2, mouth_y, mouth_w, mouth_h, false); // Draw black hole for mouth
+        mouth_open = 0.5f + 0.5f * sin(time_sec * 15.0f); // Fast open-close interpolation
     }
+
+    // ====== FACE CENTER (with sway) ======
+    int cx = 64 + sway_x;
+    int cy = 34 + sway_y;
+
+    int left_eye_cx = cx - 18;
+    int right_eye_cx = cx + 18;
+    int eye_y = cy - 4;
+
+    // ====== 1. ANIME EYES ======
+    if (is_happy) {
+        // Happy closed eyes (^ ^)
+        draw_arc(left_eye_cx, eye_y + 4, 10, 8, 2, true, true);
+        draw_arc(right_eye_cx, eye_y + 4, 10, 8, 2, true, true);
+    } 
+    else if (is_sleepy) {
+        // Sleepy closed eyes (- -)
+        draw_line(left_eye_cx - 10, eye_y + 4, left_eye_cx + 10, eye_y + 4, true);
+        draw_line(right_eye_cx - 10, eye_y + 4, right_eye_cx + 10, eye_y + 4, true);
+    }
+    else {
+        // Open Anime Eyes
+        int eye_rx = 12;
+        int eye_ry = (int)(14.0f * blink_t);
+        if (eye_ry < 1) eye_ry = 1;
+
+        if (eye_ry > 2) {
+            // Sclera/Iris base (White oval)
+            draw_filled_ellipse(left_eye_cx, eye_y, eye_rx, eye_ry, true);
+            draw_filled_ellipse(right_eye_cx, eye_y, eye_rx, eye_ry, true);
+
+            // Pupil (Black hollow inside)
+            int pupil_rx = 7;
+            int pupil_ry = (int)(9.0f * blink_t);
+            int pupil_ox = (int)(look_x * 0.7f);
+            int pupil_oy = (int)(look_y * 0.7f);
+            draw_filled_ellipse(left_eye_cx + pupil_ox, eye_y + pupil_oy, pupil_rx, pupil_ry, false);
+            draw_filled_ellipse(right_eye_cx + pupil_ox, eye_y + pupil_oy, pupil_rx, pupil_ry, false);
+
+            // Catchlights (Specular highlights - small white circles)
+            if (blink_t > 0.4f) {
+                draw_filled_circle(left_eye_cx + pupil_ox - 3, eye_y + pupil_oy - (int)(3.0f*blink_t), 2, true);
+                draw_filled_circle(right_eye_cx + pupil_ox - 3, eye_y + pupil_oy - (int)(3.0f*blink_t), 2, true);
+                
+                // Secondary tiny highlight
+                draw_pixel(left_eye_cx + pupil_ox + 4, eye_y + pupil_oy + (int)(3.0f*blink_t), true);
+                draw_pixel(right_eye_cx + pupil_ox + 4, eye_y + pupil_oy + (int)(3.0f*blink_t), true);
+            }
+
+            // Top Eyelash (Thick black curve covering top of the eye)
+            // Since our background is black, we just draw a thick white line ABOVE the eye
+            int lash_y = eye_y - eye_ry;
+            int lash_tilt = 0;
+            if (is_angry) lash_tilt = 4;
+            if (is_sad) lash_tilt = -4;
+
+            // Left Eyelash
+            draw_line(left_eye_cx - eye_rx - 2, lash_y - lash_tilt, left_eye_cx + eye_rx + 2, lash_y + lash_tilt, true);
+            draw_line(left_eye_cx - eye_rx - 2, lash_y - lash_tilt - 1, left_eye_cx + eye_rx + 2, lash_y + lash_tilt - 1, true);
+            // Right Eyelash
+            draw_line(right_eye_cx - eye_rx - 2, lash_y + lash_tilt, right_eye_cx + eye_rx + 2, lash_y - lash_tilt, true);
+            draw_line(right_eye_cx - eye_rx - 2, lash_y + lash_tilt - 1, right_eye_cx + eye_rx + 2, lash_y - lash_tilt - 1, true);
+
+        } else {
+            // Blinking (horizontal line)
+            draw_line(left_eye_cx - eye_rx, eye_y, left_eye_cx + eye_rx, eye_y, true);
+            draw_line(right_eye_cx - eye_rx, eye_y, right_eye_cx + eye_rx, eye_y, true);
+        }
+    }
+
+    // ====== 3. BLUSH (cute cheeks) ======
+    if (is_happy || is_listening) {
+        int blush_y = eye_y + 8;
+        draw_line(left_eye_cx - 6, blush_y, left_eye_cx - 2, blush_y - 2, true);
+        draw_line(left_eye_cx - 2, blush_y, left_eye_cx + 2, blush_y - 2, true);
+        
+        draw_line(right_eye_cx - 2, blush_y - 2, right_eye_cx + 2, blush_y, true);
+        draw_line(right_eye_cx + 2, blush_y - 2, right_eye_cx + 6, blush_y, true);
+    }
+
+    // ====== 4. MOUTH ======
+    int mouth_y = cy + 14;
     
+    if (is_speaking) {
+        // Dynamic speaking mouth (D-shape)
+        int mw = 4 + (int)(mouth_open * 6.0f);
+        int mh = 2 + (int)(mouth_open * 8.0f);
+        draw_filled_ellipse(cx, mouth_y + mh/2, mw, mh, true);
+        // Cut out the top to make it a D shape
+        draw_filled_ellipse(cx, mouth_y - 2, mw + 2, 4, false);
+        draw_line(cx - mw, mouth_y, cx + mw, mouth_y, true);
+    } 
+    else if (is_happy) {
+        // Happy open D-smile
+        draw_filled_ellipse(cx, mouth_y + 3, 6, 5, true);
+        draw_filled_ellipse(cx, mouth_y, 8, 3, false);
+        draw_line(cx - 6, mouth_y + 1, cx + 6, mouth_y + 1, true);
+    }
+    else if (is_sad || is_angry) {
+        // Frown
+        draw_arc(cx, mouth_y + 4, 4, 3, 1, true, true);
+    }
+    else {
+        // Small idle smile (v shape or small arc)
+        draw_arc(cx, mouth_y - 2, 3, 2, 1, true, false);
+    }
+
+    // ====== 5. STATUS ICONS ======
     if (is_listening) {
         draw_bitmap8x8(118, 2, bmp_mic);
     }
+    if (is_thinking) {
+        // Thinking dots animation
+        int dot_phase = (frame_counter / 10) % 4;
+        for (int d = 0; d < dot_phase; d++) {
+            draw_filled_circle(cx + 24 + d * 4, cy - 16, 1, true);
+        }
+    }
 
-    // --- Status Overlay ---
+    // ====== 6. STATUS OVERLAYS ======
     if (!wifi) {
         for(int i=0; i<42; i++) {
             for(int j=56; j<64; j++) draw_pixel(i, j, false);

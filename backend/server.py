@@ -14,7 +14,7 @@ async def handle_client(websocket, path=""):
     
     # Send a spoken greeting immediately on connection
     logger.info("Generating and sending startup greeting...")
-    greeting = await pipeline.text_to_speech("System online. Hello! My name is Chin Chin. How can I help you today?")
+    greeting = await pipeline.text_to_speech("System online. Hello! My name is Kiwi. How can I help you today?")
     if greeting:
         await websocket.send(greeting)
         

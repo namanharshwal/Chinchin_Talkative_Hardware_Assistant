@@ -98,7 +98,7 @@ class AIPipeline:
             memory_context = f"\nUser Preferences/Memory: {json.dumps(self.long_term_memory)}"
             
         system_prompt = (
-            "You are Chin Chin, a highly expressive AI companion. "
+            "You are Kiwi, a highly expressive AI companion. "
             "Respond intelligently: use short, concise answers for casual chat, and detailed answers only when explicitly asked. "
             "Respond fluently in the language the user speaks (default to English). "
             f"Maintain context of the conversation.{memory_context}"
