@@ -56,15 +56,25 @@ async def handle_client(websocket, path=""):
         
     audio_buffer = bytearray()
     silence_frames = 0
+    is_processing = False
     
     try:
         async for message in websocket:
             if isinstance(message, bytes):
+                if is_processing:
+                    continue
+                    
                 # Energy-based VAD (Voice Activity Detection)
                 # ESP32 sends 16-bit PCM. audioop.rms calculates the energy.
+                if len(message) % 2 != 0:
+                    message = message[:-1]
+                
+                if len(message) == 0:
+                    continue
+                    
                 rms = audioop.rms(message, 2)
                 
-                if rms > 1500: # Threshold for voice
+                if rms > 500: # Threshold for voice (lowered for better sensitivity)
                     if not is_user_speaking:
                         is_user_speaking = True
                         logger.info(f"User started speaking (RMS: {rms})")
@@ -77,6 +87,7 @@ async def handle_client(websocket, path=""):
                     # If silence for ~1.5s (assuming ~50ms frames, ~30 frames)
                     if silence_frames > 30:
                         is_user_speaking = False
+                        is_processing = True
                         logger.info("User stopped speaking. Processing...")
                         await websocket.send(json.dumps({"state": "thinking"}))
                         
@@ -95,6 +106,7 @@ async def handle_client(websocket, path=""):
                                 await websocket.send(audio_reply)
                                 
                         await websocket.send(json.dumps({"state": "idle"}))
+                        is_processing = False
                         
             elif isinstance(message, str):
                 last_interaction_time = time.time()

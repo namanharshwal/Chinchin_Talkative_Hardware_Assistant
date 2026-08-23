@@ -23,8 +23,9 @@ static void mic_recording_task(void *arg) {
     }
     while (1) {
         ui_state_t current_state = ui_manager_get_state();
-        // Stream constantly unless we are speaking (to prevent echo) or in menu/hacking modes
+        // Stream constantly unless we are speaking, thinking, or in menu/hacking modes
         if (current_state != UI_STATE_SPEAKING && 
+            current_state != UI_STATE_THINKING &&
             current_state != UI_STATE_MENU && 
             current_state != UI_STATE_HACKING) {
             
