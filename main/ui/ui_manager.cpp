@@ -364,69 +364,83 @@ void ui_render(void) {
         if (eye_ry < 1) eye_ry = 1;
 
         if (eye_ry > 2) {
-            // Sclera/Iris base (White oval)
-            draw_filled_ellipse(left_eye_cx, eye_y, eye_rx, eye_ry, true);
-            draw_filled_ellipse(right_eye_cx, eye_y, eye_rx, eye_ry, true);
+            // --- AGGRESSIVE CYBERPUNK EYES ---
+            
+            // Left Eye
+            // Top eyelid (Aggressive slant down towards center)
+            draw_line(left_eye_cx - 14, eye_y - 6, left_eye_cx + 10, eye_y + 3, true);
+            draw_line(left_eye_cx - 14, eye_y - 5, left_eye_cx + 10, eye_y + 4, true); // thickness
+            draw_line(left_eye_cx - 14, eye_y - 4, left_eye_cx + 10, eye_y + 5, true); // thickness
+            
+            // Bottom eyelid (Flat/slight curve)
+            draw_line(left_eye_cx - 10, eye_y + 8, left_eye_cx + 6, eye_y + 8, true);
+            draw_line(left_eye_cx - 10, eye_y + 7, left_eye_cx + 6, eye_y + 7, true);
+            
+            // Connect left side
+            draw_line(left_eye_cx - 14, eye_y - 6, left_eye_cx - 10, eye_y + 8, true);
+            draw_line(left_eye_cx - 13, eye_y - 6, left_eye_cx - 9, eye_y + 8, true);
+            
+            // Left Pupil (Tech U-Shape)
+            int pupil_x = left_eye_cx - 4 + (int)(look_x * 0.7f);
+            int pupil_y = eye_y + 1 + (int)(look_y * 0.7f);
+            draw_filled_rect(pupil_x, pupil_y, 7, 7, true);
+            draw_filled_rect(pupil_x + 2, pupil_y + 2, 3, 5, false); // Hollow out to make U-shape
 
-            // Pupil (Black hollow inside)
-            int pupil_rx = 7;
-            int pupil_ry = (int)(9.0f * blink_t);
-            int pupil_ox = (int)(look_x * 0.7f);
-            int pupil_oy = (int)(look_y * 0.7f);
-            draw_filled_ellipse(left_eye_cx + pupil_ox, eye_y + pupil_oy, pupil_rx, pupil_ry, false);
-            draw_filled_ellipse(right_eye_cx + pupil_ox, eye_y + pupil_oy, pupil_rx, pupil_ry, false);
-
-            // Catchlights (Specular highlights - small white circles)
-            if (blink_t > 0.4f) {
-                draw_filled_circle(left_eye_cx + pupil_ox - 3, eye_y + pupil_oy - (int)(3.0f*blink_t), 2, true);
-                draw_filled_circle(right_eye_cx + pupil_ox - 3, eye_y + pupil_oy - (int)(3.0f*blink_t), 2, true);
-                
-                // Secondary tiny highlight
-                draw_pixel(left_eye_cx + pupil_ox + 4, eye_y + pupil_oy + (int)(3.0f*blink_t), true);
-                draw_pixel(right_eye_cx + pupil_ox + 4, eye_y + pupil_oy + (int)(3.0f*blink_t), true);
-            }
+            // Right Eye
+            // Top eyelid (Aggressive slant down towards center)
+            draw_line(right_eye_cx + 14, eye_y - 6, right_eye_cx - 10, eye_y + 3, true);
+            draw_line(right_eye_cx + 14, eye_y - 5, right_eye_cx - 10, eye_y + 4, true);
+            draw_line(right_eye_cx + 14, eye_y - 4, right_eye_cx - 10, eye_y + 5, true);
+            
+            // Bottom eyelid
+            draw_line(right_eye_cx + 10, eye_y + 8, right_eye_cx - 6, eye_y + 8, true);
+            draw_line(right_eye_cx + 10, eye_y + 7, right_eye_cx - 6, eye_y + 7, true);
+            
+            // Connect right side
+            draw_line(right_eye_cx + 14, eye_y - 6, right_eye_cx + 10, eye_y + 8, true);
+            draw_line(right_eye_cx + 13, eye_y - 6, right_eye_cx + 9, eye_y + 8, true);
+            
+            // Right Pupil
+            pupil_x = right_eye_cx - 3 + (int)(look_x * 0.7f);
+            draw_filled_rect(pupil_x, pupil_y, 7, 7, true);
+            draw_filled_rect(pupil_x + 2, pupil_y + 2, 3, 5, false);
+            
         } else {
             // Blinking (horizontal line)
-            draw_line(left_eye_cx - eye_rx, eye_y, left_eye_cx + eye_rx, eye_y, true);
-            draw_line(right_eye_cx - eye_rx, eye_y, right_eye_cx + eye_rx, eye_y, true);
+            draw_line(left_eye_cx - 12, eye_y + 4, left_eye_cx + 10, eye_y + 4, true);
+            draw_line(left_eye_cx - 12, eye_y + 5, left_eye_cx + 10, eye_y + 5, true);
+            draw_line(right_eye_cx - 10, eye_y + 4, right_eye_cx + 12, eye_y + 4, true);
+            draw_line(right_eye_cx - 10, eye_y + 5, right_eye_cx + 12, eye_y + 5, true);
         }
     }
 
     // ====== 3. BLUSH (cute cheeks) ======
-    if (is_happy || is_listening) {
-        int blush_y = eye_y + 8;
-        draw_line(left_eye_cx - 6, blush_y, left_eye_cx - 2, blush_y - 2, true);
-        draw_line(left_eye_cx - 2, blush_y, left_eye_cx + 2, blush_y - 2, true);
-        
-        draw_line(right_eye_cx - 2, blush_y - 2, right_eye_cx + 2, blush_y, true);
-        draw_line(right_eye_cx + 2, blush_y - 2, right_eye_cx + 6, blush_y, true);
-    }
+    // Removed for cyberpunk hacker aesthetic
 
     // ====== 4. MOUTH ======
     int mouth_y = cy + 14;
     
     if (is_speaking) {
-        // Dynamic speaking mouth (D-shape)
-        int mw = 4 + (int)(mouth_open * 6.0f);
-        int mh = 2 + (int)(mouth_open * 8.0f);
-        draw_filled_ellipse(cx, mouth_y + mh/2, mw, mh, true);
-        // Cut out the top to make it a D shape
-        draw_filled_ellipse(cx, mouth_y - 2, mw + 2, 4, false);
-        draw_line(cx - mw, mouth_y, cx + mw, mouth_y, true);
+        // Dynamic speaking mouth (Digital wide static bar)
+        int mw = 4 + (int)(mouth_open * 4.0f);
+        int mh = 2 + (int)(mouth_open * 6.0f);
+        draw_filled_rect(cx - mw, mouth_y, mw * 2, mh, true);
+        // Inner void
+        if (mh > 2) draw_filled_rect(cx - mw + 1, mouth_y + 1, mw * 2 - 2, mh - 2, false);
     } 
     else if (is_happy) {
-        // Happy open D-smile
-        draw_filled_ellipse(cx, mouth_y + 3, 6, 5, true);
-        draw_filled_ellipse(cx, mouth_y, 8, 3, false);
-        draw_line(cx - 6, mouth_y + 1, cx + 6, mouth_y + 1, true);
-    }
-    else if (is_sad || is_angry) {
-        // Frown
-        draw_arc(cx, mouth_y + 4, 4, 3, 1, true, true);
+        // Hacker smirk
+        draw_line(cx - 6, mouth_y, cx, mouth_y + 2, true);
+        draw_line(cx - 6, mouth_y - 1, cx, mouth_y + 1, true);
+        draw_line(cx, mouth_y + 2, cx + 6, mouth_y - 2, true);
+        draw_line(cx, mouth_y + 1, cx + 6, mouth_y - 3, true);
     }
     else {
-        // Small idle smile (v shape or small arc)
-        draw_arc(cx, mouth_y - 2, 3, 2, 1, true, false);
+        // Sharp 'v' mouth (Idle/Default)
+        draw_line(cx - 4, mouth_y - 2, cx, mouth_y + 2, true);
+        draw_line(cx - 3, mouth_y - 2, cx, mouth_y + 1, true);
+        draw_line(cx + 4, mouth_y - 2, cx, mouth_y + 2, true);
+        draw_line(cx + 3, mouth_y - 2, cx, mouth_y + 1, true);
     }
 
     // ====== 5. STATUS ICONS ======
