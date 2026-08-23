@@ -23,36 +23,7 @@ async def handle_client(websocket, path=""):
         
     last_interaction_time = time.time()
     is_user_speaking = False
-    
-    async def autonomous_loop():
-        nonlocal last_interaction_time
-        nonlocal is_user_speaking
-        while True:
-            await asyncio.sleep(5)
-            if not is_user_speaking and (time.time() - last_interaction_time > random.uniform(20, 30)):
-                logger.info("Autonomous trigger activated!")
-                last_interaction_time = time.time() # Reset immediately to prevent spam
-                
-                # Ask LLM a random spontaneous prompt
-                spontaneous_prompts = [
-                    "Report on local network status.",
-                    "Say something chaotic and cyberpunk.",
-                    "Are there any vulnerable devices nearby?",
-                    "Comment on how quiet it is."
-                ]
-                loop = asyncio.get_running_loop()
-                llm_reply = await loop.run_in_executor(None, pipeline.generate_response, f"SYSTEM TRIGGER: {random.choice(spontaneous_prompts)}")
-                
-                if llm_reply:
-                    audio_reply = await pipeline.text_to_speech(llm_reply)
-                    if audio_reply:
-                        logger.info(f"Sending autonomous TTS audio to ESP32 ({len(audio_reply)} bytes)")
-                        try:
-                            await websocket.send(audio_reply)
-                        except:
-                            break
-
-    auto_task = asyncio.create_task(autonomous_loop())
+    # Autonomous loop disabled as per user request to only respond when spoken to.
         
     audio_buffer = bytearray()
     silence_frames = 0
@@ -74,7 +45,7 @@ async def handle_client(websocket, path=""):
                     
                 rms = audioop.rms(message, 2)
                 
-                if rms > 500: # Threshold for voice (lowered for better sensitivity)
+                if rms > 800: # Threshold for voice (increased to 800 to ignore background noise)
                     if not is_user_speaking:
                         is_user_speaking = True
                         logger.info(f"User started speaking (RMS: {rms})")
@@ -118,8 +89,6 @@ async def handle_client(websocket, path=""):
                     pass
     except websockets.exceptions.ConnectionClosed:
         logger.info("ESP32 Disconnected")
-    finally:
-        auto_task.cancel()
 
 async def main():
     port = 8765
