@@ -366,6 +366,11 @@ void ui_render(void) {
         if (eye_ry > 2) {
             // --- AGGRESSIVE CYBERPUNK EYES ---
             
+            // Left Eyebrow (Aggressive downward slant)
+            draw_line(left_eye_cx - 16, eye_y - 10, left_eye_cx + 12, eye_y - 2, true);
+            draw_line(left_eye_cx - 16, eye_y - 11, left_eye_cx + 12, eye_y - 3, true); // thickness
+            draw_line(left_eye_cx - 16, eye_y - 12, left_eye_cx + 12, eye_y - 4, true); // thickness
+            
             // Left Eye
             // Top eyelid (Aggressive slant down towards center)
             draw_line(left_eye_cx - 14, eye_y - 6, left_eye_cx + 10, eye_y + 3, true);
@@ -385,6 +390,11 @@ void ui_render(void) {
             int pupil_y = eye_y + 1 + (int)(look_y * 0.7f);
             draw_filled_rect(pupil_x, pupil_y, 7, 7, true);
             draw_filled_rect(pupil_x + 2, pupil_y + 2, 3, 5, false); // Hollow out to make U-shape
+
+            // Right Eyebrow (Aggressive downward slant)
+            draw_line(right_eye_cx + 16, eye_y - 10, right_eye_cx - 12, eye_y - 2, true);
+            draw_line(right_eye_cx + 16, eye_y - 11, right_eye_cx - 12, eye_y - 3, true);
+            draw_line(right_eye_cx + 16, eye_y - 12, right_eye_cx - 12, eye_y - 4, true);
 
             // Right Eye
             // Top eyelid (Aggressive slant down towards center)
