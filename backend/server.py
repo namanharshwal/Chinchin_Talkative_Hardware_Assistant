@@ -39,7 +39,7 @@ def get_face_state(emotion: str):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("Server")
 
-pipeline = AIPipeline(llm_model="minimaxai/minimax-m3")
+pipeline = AIPipeline(llm_model="meta/llama-3.1-8b-instruct")
 
 async def handle_client(websocket, path=""):
     logger.info(f"ESP32 Connected from {websocket.remote_address}")
