@@ -366,21 +366,6 @@ void ui_render(void) {
                 draw_pixel(left_eye_cx + pupil_ox + 4, eye_y + pupil_oy + (int)(3.0f*blink_t), true);
                 draw_pixel(right_eye_cx + pupil_ox + 4, eye_y + pupil_oy + (int)(3.0f*blink_t), true);
             }
-
-            // Top Eyelash (Thick black curve covering top of the eye)
-            // Since our background is black, we just draw a thick white line ABOVE the eye
-            int lash_y = eye_y - eye_ry;
-            int lash_tilt = 0;
-            if (is_angry) lash_tilt = 4;
-            if (is_sad) lash_tilt = -4;
-
-            // Left Eyelash
-            draw_line(left_eye_cx - eye_rx - 2, lash_y - lash_tilt, left_eye_cx + eye_rx + 2, lash_y + lash_tilt, true);
-            draw_line(left_eye_cx - eye_rx - 2, lash_y - lash_tilt - 1, left_eye_cx + eye_rx + 2, lash_y + lash_tilt - 1, true);
-            // Right Eyelash
-            draw_line(right_eye_cx - eye_rx - 2, lash_y + lash_tilt, right_eye_cx + eye_rx + 2, lash_y - lash_tilt, true);
-            draw_line(right_eye_cx - eye_rx - 2, lash_y + lash_tilt - 1, right_eye_cx + eye_rx + 2, lash_y - lash_tilt - 1, true);
-
         } else {
             // Blinking (horizontal line)
             draw_line(left_eye_cx - eye_rx, eye_y, left_eye_cx + eye_rx, eye_y, true);
