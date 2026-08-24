@@ -119,7 +119,10 @@ async def handle_client(websocket, path=""):
                             # 3. TTS (without the emotion tag)
                             audio_reply = await pipeline.text_to_speech(clean_reply)
                             if audio_reply:
-                                await websocket.send(audio_reply)
+                                # Send in 4096 byte chunks to prevent ESP32 memory overflow
+                                chunk_size = 4096
+                                for i in range(0, len(audio_reply), chunk_size):
+                                    await websocket.send(audio_reply[i:i+chunk_size])
                                 
                         await websocket.send(json.dumps({"state": "idle"}))
                         is_processing = False

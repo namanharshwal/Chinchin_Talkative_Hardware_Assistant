@@ -28,8 +28,6 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
                 ui_manager_set_status("Speaking...");
                 ui_manager_set_state(UI_STATE_SPEAKING);
                 audio_hal_write_speaker((const uint8_t*)data->data_ptr, data->data_len);
-                ui_manager_set_state(UI_STATE_IDLE);
-                ui_manager_set_status("AI Connected!");
             } else if (data->op_code == 1) { // Text data
                 ESP_LOGI(TAG, "WEBSOCKET_EVENT_DATA: Text data received");
                 // Null-terminate the string safely for parsing
