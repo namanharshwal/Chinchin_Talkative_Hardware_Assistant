@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "ui/ui_manager.h"
 #include "audio/audio_hal.h"
+#include "cJSON.h"
 
 static const char *TAG = "WEBSOCKET";
 static esp_websocket_client_handle_t client = NULL;
@@ -36,15 +37,35 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
                     memcpy(text_data, data->data_ptr, data->data_len);
                     text_data[data->data_len] = '\0';
                     
-                    if (strstr(text_data, "\"state\":\"listening\"")) {
-                        ui_manager_set_state(UI_STATE_LISTENING);
-                        ui_manager_set_status("Listening...");
-                    } else if (strstr(text_data, "\"state\":\"thinking\"")) {
-                        ui_manager_set_state(UI_STATE_THINKING);
-                        ui_manager_set_status("Thinking...");
-                    } else if (strstr(text_data, "\"state\":\"idle\"")) {
-                        ui_manager_set_state(UI_STATE_IDLE);
-                        ui_manager_set_status("AI Connected!");
+                    cJSON *json = cJSON_Parse(text_data);
+                    if (json) {
+                        cJSON *state = cJSON_GetObjectItem(json, "state");
+                        if (state && cJSON_IsString(state)) {
+                            const char *s = state->valuestring;
+                            if (strcmp(s, "listening") == 0) {
+                                ui_manager_set_state(UI_STATE_LISTENING);
+                                ui_manager_set_status("Listening...");
+                            } else if (strcmp(s, "thinking") == 0) {
+                                ui_manager_set_state(UI_STATE_THINKING);
+                                ui_manager_set_status("Thinking...");
+                            } else if (strcmp(s, "idle") == 0) {
+                                ui_manager_set_state(UI_STATE_IDLE);
+                                ui_manager_set_status("AI Connected!");
+                            } else if (strcmp(s, "happy") == 0) {
+                                ui_manager_set_state(UI_STATE_HAPPY);
+                                ui_manager_set_status("AI Connected!");
+                            } else if (strcmp(s, "sad") == 0) {
+                                ui_manager_set_state(UI_STATE_SAD);
+                                ui_manager_set_status("AI Connected!");
+                            } else if (strcmp(s, "angry") == 0) {
+                                ui_manager_set_state(UI_STATE_ANGRY);
+                                ui_manager_set_status("AI Connected!");
+                            } else if (strcmp(s, "sleepy") == 0) {
+                                ui_manager_set_state(UI_STATE_SLEEPY);
+                                ui_manager_set_status("AI Connected!");
+                            }
+                        }
+                        cJSON_Delete(json);
                     }
                     
                     free(text_data);
