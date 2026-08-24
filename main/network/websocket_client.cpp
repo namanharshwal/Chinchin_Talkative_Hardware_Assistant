@@ -85,6 +85,7 @@ esp_err_t websocket_client_start(const char *uri) {
     
     esp_websocket_client_config_t websocket_cfg = {};
     websocket_cfg.uri = uri;
+    websocket_cfg.buffer_size = 4096;
 
     client = esp_websocket_client_init(&websocket_cfg);
     esp_websocket_register_events(client, WEBSOCKET_EVENT_ANY, websocket_event_handler, (void *)client);

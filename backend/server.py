@@ -74,7 +74,7 @@ async def handle_client(websocket, path=""):
                     
                 rms = audioop.rms(message, 2)
                 
-                if rms > 800: # Threshold for voice (increased to 800 to ignore background noise)
+                if rms > 500: # Threshold for voice (lowered to 500 to be more sensitive)
                     if not is_user_speaking:
                         is_user_speaking = True
                         logger.info(f"User started speaking (RMS: {rms})")
@@ -119,8 +119,8 @@ async def handle_client(websocket, path=""):
                             # 3. TTS (without the emotion tag)
                             audio_reply = await pipeline.text_to_speech(clean_reply)
                             if audio_reply:
-                                # Send in 4096 byte chunks to prevent ESP32 memory overflow
-                                chunk_size = 4096
+                                # Send in 1024 byte chunks to prevent ESP-IDF websocket buffer overflow (default is 1024)
+                                chunk_size = 1024
                                 for i in range(0, len(audio_reply), chunk_size):
                                     await websocket.send(audio_reply[i:i+chunk_size])
                                 
