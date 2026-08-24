@@ -453,10 +453,18 @@ void ui_render(void) {
         draw_line(cx + 3, mouth_y - 2, cx, mouth_y + 1, true);
     }
 
-    // ====== 5. STATUS ICONS ======
-    if (is_listening) {
-        draw_bitmap8x8(118, 2, bmp_mic);
+    // ====== 5. STATUS ICONS (Top) ======
+    if (wifi) {
+        draw_bitmap8x8(118, 0, bmp_wifi_on);
+    } else {
+        // Redraw "NO WIFI" at top left if no connection
+        draw_string(0, 0, "NO WIFI");
     }
+
+    if (is_listening) {
+        draw_bitmap8x8(108, 0, bmp_mic);
+    }
+    
     if (is_thinking) {
         // Thinking dots animation
         int dot_phase = (frame_counter / 10) % 4;
@@ -465,13 +473,19 @@ void ui_render(void) {
         }
     }
 
-    // ====== 6. STATUS OVERLAYS ======
-    if (!wifi) {
-        for(int i=0; i<42; i++) {
-            for(int j=56; j<64; j++) draw_pixel(i, j, false);
-        }
-        draw_string(0, 56, "NO WIFI");
+    // ====== 6. STATUS OVERLAYS (Bottom) ======
+    // Draw state text at the bottom center of the screen (y = 56)
+    if (is_listening) {
+        // "LISTENING..." is 12 chars * 6 = 72 pixels wide. (128-72)/2 = 28
+        draw_string(28, 56, "LISTENING...");
+    } else if (is_thinking) {
+        // "THINKING..." is 11 chars * 6 = 66 pixels wide. (128-66)/2 = 31
+        draw_string(31, 56, "THINKING...");
+    } else if (is_speaking) {
+        // "TALKING..." is 10 chars * 6 = 60 pixels wide. (128-60)/2 = 34
+        draw_string(34, 56, "TALKING...");
     }
+
     if (is_error) {
         for(int i=0; i<32; i++) {
             for(int j=0; j<8; j++) draw_pixel(i, j, false);
