@@ -101,4 +101,4 @@ idf.py flash monitor
 4. **Hold Button 3** for 2 seconds to enter the on-screen Settings Menu OS.
 
 ---
-*Built by Nammy and Antigravity*
+*Built by Naman Harshwal*
