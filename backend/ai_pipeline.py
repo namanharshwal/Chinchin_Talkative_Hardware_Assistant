@@ -144,7 +144,8 @@ class AIPipeline:
         import edge_tts
         from pydub import AudioSegment
         logger.info(f"Generating voice using Edge TTS ({self.voice})...")
-        communicate = edge_tts.Communicate(text, self.voice)
+        # Added pitch shift and slower rate natively to EdgeTTS for a deep, clear "Ultron" voice
+        communicate = edge_tts.Communicate(text, self.voice, rate="-5%", pitch="-15Hz")
         audio_buffer = bytearray()
         try:
             async for chunk in communicate.stream():
@@ -158,22 +159,8 @@ class AIPipeline:
             
             pcm_data = audio_segment.raw_data
             
-            # --- ALIEN / ROBOT VOICE EFFECT (Ring Modulation) ---
-            # Modulate the 16kHz audio with a low-frequency square wave (Dalek effect)
-            logger.info("Applying Ring Modulation for Robotic/Alien Voice effect...")
-            pcm_array = bytearray(pcm_data)
-            # 16-bit PCM = 2 bytes per sample. 16000 samples/sec. 
-            # 50Hz modulation = 320 samples per cycle.
-            for i in range(0, len(pcm_array), 2):
-                sample = int.from_bytes(pcm_array[i:i+2], byteorder='little', signed=True)
-                # Tremolo/Ring mod: alternate volume every 160 samples
-                if (i // 320) % 2 == 0:
-                    sample = int(sample * 1.0)
-                else:
-                    sample = int(sample * 0.4) # Cut volume by 60% rapidly
-                pcm_array[i:i+2] = sample.to_bytes(2, byteorder='little', signed=True)
-            
-            pcm_data = bytes(pcm_array)
+            # Ring modulation removed: It distorted the audio, making it unintelligible.
+            # The native pitch/rate shift above provides a much clearer, high-quality robotic voice.
             
             logger.info(f"Converted PCM length: {len(pcm_data)} bytes")
             return pcm_data

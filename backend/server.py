@@ -74,7 +74,7 @@ async def handle_client(websocket, path=""):
                     
                 rms = audioop.rms(message, 2)
                 
-                if rms > 500: # Threshold for voice (lowered to 500 to be more sensitive)
+                if rms > 1000: # Increased threshold to 1000 to ignore background noise
                     if not is_user_speaking:
                         is_user_speaking = True
                         logger.info(f"User started speaking (RMS: {rms})")
@@ -84,8 +84,8 @@ async def handle_client(websocket, path=""):
                 elif is_user_speaking:
                     audio_buffer.extend(message)
                     silence_frames += 1
-                    # If silence for ~1.5s (assuming ~50ms frames, ~30 frames)
-                    if silence_frames > 30:
+                    # If silence for ~2.0s (assuming ~50ms frames, ~40 frames)
+                    if silence_frames > 40:
                         is_user_speaking = False
                         is_processing = True
                         logger.info("User stopped speaking. Processing...")
